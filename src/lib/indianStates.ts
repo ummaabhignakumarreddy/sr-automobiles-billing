@@ -1,0 +1,53 @@
+export interface IndianState {
+  code: string;
+  name: string;
+}
+
+export const INDIAN_STATES: IndianState[] = [
+  { code: '36', name: 'Telangana' },
+  { code: '37', name: 'Andhra Pradesh' },
+  { code: '29', name: 'Karnataka' },
+  { code: '27', name: 'Maharashtra' },
+  { code: '33', name: 'Tamil Nadu' },
+  { code: '32', name: 'Kerala' },
+  { code: '07', name: 'Delhi' },
+  { code: '24', name: 'Gujarat' },
+  { code: '08', name: 'Rajasthan' },
+  { code: '09', name: 'Uttar Pradesh' },
+  { code: '23', name: 'Madhya Pradesh' },
+  { code: '19', name: 'West Bengal' },
+  { code: '21', name: 'Odisha' },
+  { code: '03', name: 'Punjab' },
+  { code: '06', name: 'Haryana' },
+  { code: '10', name: 'Bihar' },
+  { code: '20', name: 'Jharkhand' },
+  { code: '22', name: 'Chhattisgarh' },
+  { code: '30', name: 'Goa' },
+  { code: '05', name: 'Uttarakhand' },
+  { code: '02', name: 'Himachal Pradesh' },
+  { code: '01', name: 'Jammu and Kashmir' },
+  { code: '38', name: 'Ladakh' },
+  { code: '04', name: 'Chandigarh' },
+  { code: '18', name: 'Assam' },
+  { code: '11', name: 'Sikkim' },
+  { code: '12', name: 'Arunachal Pradesh' },
+  { code: '13', name: 'Nagaland' },
+  { code: '14', name: 'Manipur' },
+  { code: '15', name: 'Mizoram' },
+  { code: '16', name: 'Tripura' },
+  { code: '17', name: 'Meghalaya' },
+  { code: '34', name: 'Puducherry' },
+  { code: '35', name: 'Andaman and Nicobar Islands' },
+  { code: '31', name: 'Lakshadweep' },
+  { code: '26', name: 'Dadra and Nagar Haveli and Daman and Diu' },
+  { code: '97', name: 'Other Territory' },
+];
+
+export const getStateByCode = (code: string): IndianState | undefined => {
+  return INDIAN_STATES.find(s => s.code === code.trim());
+};
+
+export const getStateByName = (name: string): IndianState | undefined => {
+  const clean = name.trim().toLowerCase();
+  return INDIAN_STATES.find(s => s.name.toLowerCase() === clean);
+};
