@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Bike, Lock, Mail, ShieldAlert, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ShieldAlert, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Footer } from '../components/common/Footer';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -157,6 +158,7 @@ export const LoginPage: React.FC = () => {
         <p className="text-center text-[11px] text-slate-500 mt-6">
           SR AUTOMOBILES &copy; {new Date().getFullYear()} &bull; Vehicle Sales & GST Billing System
         </p>
+        <Footer className="mt-2 bg-transparent border-0" />
       </div>
     </div>
   );

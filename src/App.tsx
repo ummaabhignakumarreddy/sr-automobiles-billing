@@ -16,6 +16,7 @@ import { AuditLogPage } from './pages/AuditLogPage';
 import { PrintableInvoice } from './components/invoice/PrintableInvoice';
 import { VehicleFormModal } from './components/vehicles/VehicleFormModal';
 import { CustomerFormModal } from './components/customers/CustomerFormModal';
+import { Footer } from './components/common/Footer';
 import { Invoice } from './types/database.types';
 
 const MainApp: React.FC = () => {
@@ -74,8 +75,8 @@ const MainApp: React.FC = () => {
         />
 
         {/* Scrollable Page Body with Smooth Transition */}
-        <main className="flex-1 overflow-y-auto bg-[#f8fafc]">
-          <div key={activeInvoiceView ? `inv-${activeInvoiceView.id}` : currentSection} className="animate-fade-in-up">
+        <main className="flex-1 overflow-y-auto bg-[#f8fafc] flex flex-col justify-between">
+          <div key={activeInvoiceView ? `inv-${activeInvoiceView.id}` : currentSection} className="animate-fade-in-up flex-1">
             {activeInvoiceView ? (
               <div className="p-6">
                 <PrintableInvoice
@@ -124,6 +125,9 @@ const MainApp: React.FC = () => {
               </>
             )}
           </div>
+
+          {/* Bottom Footer across every page */}
+          <Footer />
         </main>
       </div>
 
