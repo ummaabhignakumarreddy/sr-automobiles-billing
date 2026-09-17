@@ -154,4 +154,12 @@ describe('Statutory GST Validators', () => {
     expect(validatePincode('000000').isValid).toBe(false);
     expect(validatePincode('52123').isValid).toBe(false);
   });
+
+  it('validates SR AUTOMOBILES official GSTIN and state code consistency', () => {
+    const sraGstin = '37CGEPN8682D1Z1';
+    const result = validateGSTIN(sraGstin, '37');
+    expect(result.isValid).toBe(true);
+    expect(sraGstin.substring(0, 2)).toBe('37');
+  });
 });
+

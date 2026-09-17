@@ -3,6 +3,7 @@ import { Invoice, InvoiceCopyType } from '../../types/database.types';
 import { formatINR, formatDateIndian } from '../../lib/formatters';
 import { numberToWordsIndian } from '../../lib/currencyWords';
 import { generateInvoicePdf } from '../../lib/pdfGenerator';
+import { useAppData } from '../../context/AppDataContext';
 import { Printer, Download, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 interface PrintableInvoiceProps {
@@ -18,6 +19,16 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
 }) => {
   const [copyType, setCopyType] = useState<InvoiceCopyType>('ORIGINAL FOR RECIPIENT');
   const [isDownloaded, setIsDownloaded] = useState(false);
+
+  // Safely access active app context settings if rendered within AppDataProvider
+  const appData = (() => {
+    try {
+      return useAppData();
+    } catch {
+      return null;
+    }
+  })();
+  const fallbackSettings = appData?.settings;
 
   const {
     invoice_number,
@@ -42,20 +53,40 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
     payments = [],
   } = invoice;
 
-  const isIntraState = business.state_code === place_of_supply_state_code;
+  // Robust fallback resolution for dealership details ensuring statutory compliance
+  const supplierBusinessName = business?.business_name || fallbackSettings?.business_name || 'SR AUTOMOBILES';
+  const supplierGstin = business?.gstin?.trim() || fallbackSettings?.gstin?.trim() || '37CGEPN8682D1Z1';
+  const supplierAddress = business?.address || fallbackSettings?.address || 'Chandrababu Nagar Ring';
+  const supplierCity = business?.city || fallbackSettings?.city || 'Mylavaram';
+  const supplierDistrict = business?.district || fallbackSettings?.district || 'NTR';
+  const supplierState = business?.state || fallbackSettings?.state || 'Andhra Pradesh';
+  const supplierStateCode = business?.state_code || fallbackSettings?.state_code || '37';
+  const supplierPincode = business?.pincode || fallbackSettings?.pincode || '521230';
+  const supplierPhone = business?.phone || fallbackSettings?.phone || '8367444144';
+  const supplierEmail = business?.email || fallbackSettings?.email || '';
+  const supplierBankName = business?.bank_name || fallbackSettings?.bank_name || '';
+  const supplierAccountNo = business?.account_number || fallbackSettings?.account_number || '';
+  const supplierIfsc = business?.ifsc || fallbackSettings?.ifsc || '';
+  const supplierUpiId = business?.upi_id || fallbackSettings?.upi_id || '';
+  const supplierSignatory = business?.authorized_signatory || fallbackSettings?.authorized_signatory || 'Venkata Ramana Reddy Umma';
+  const supplierTerms = business?.terms_and_conditions || fallbackSettings?.terms_and_conditions;
+
+  const isIntraState = supplierStateCode === place_of_supply_state_code;
   const grandTotalWords = numberToWordsIndian(grand_total);
   const isElectric = vehicle.fuel_type === 'Electric';
   const hasCess = (cess_amount || 0) > 0;
 
   // Format phone to "+91 XXXXXXXXXX"
-  const formattedPhone = business.phone
-    ? business.phone.startsWith('+91')
-      ? business.phone
-      : `+91 ${business.phone}`
+  const formattedPhone = supplierPhone
+    ? supplierPhone.startsWith('+91')
+      ? supplierPhone
+      : `+91 ${supplierPhone}`
     : '+91 8367444144';
 
+  const fullSupplierAddress = `${supplierAddress}, ${supplierCity}, ${supplierDistrict ? `${supplierDistrict}, ` : ''}${supplierState} - ${supplierPincode}`;
+
   const hasBankDetails = Boolean(
-    business.bank_name?.trim() && business.account_number?.trim()
+    supplierBankName?.trim() && supplierAccountNo?.trim()
   );
 
   const handlePrint = () => {
@@ -64,7 +95,7 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
 
   const handleDownloadPdf = () => {
     try {
-      generateInvoicePdf(invoice, copyType);
+      generateInvoicePdf(invoice, copyType, fallbackSettings);
       setIsDownloaded(true);
       setTimeout(() => setIsDownloaded(false), 3500);
     } catch (err) {
@@ -172,22 +203,29 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
               {/* Center: Dealership Info */}
               <div className="flex-1 text-center px-2">
                 <h1 className="text-[20pt] font-black tracking-wider text-slate-950 uppercase font-mono leading-none">
-                  {business.business_name}
+                  {supplierBusinessName}
                 </h1>
                 <p className="text-[9.5pt] text-slate-700 mt-1 font-medium">
-                  {business.address}, {business.city}, {business.state} - {business.pincode}
+                  {fullSupplierAddress}
                 </p>
                 <p className="text-[9pt] text-slate-800 mt-0.5">
                   Phone: <span className="font-semibold text-slate-950">{formattedPhone}</span>
-                  {business.email && business.email.trim() && (
-                    <> &bull; Email: <span className="font-semibold text-slate-950">{business.email.trim()}</span></>
+                  {supplierEmail && supplierEmail.trim() && (
+                    <> &bull; Email: <span className="font-semibold text-slate-950">{supplierEmail.trim()}</span></>
                   )}
                 </p>
-                {business.gstin && business.gstin.trim() && (
-                  <p className="text-[9.5pt] font-bold text-slate-950 mt-0.5">
-                    GSTIN: <span className="font-mono tracking-wider">{business.gstin.trim()}</span>
-                  </p>
-                )}
+                {/* Statutory Dealership GSTIN & State Code (Rule 46) */}
+                <div className="mt-1 flex items-center justify-center">
+                  <div className="inline-flex items-center gap-2 px-3 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-950">
+                    <span className="text-[9pt] font-black tracking-wide">
+                      GSTIN: <span className="font-mono text-[9.5pt] font-black tracking-wider text-slate-950">{supplierGstin}</span>
+                    </span>
+                    <span className="text-slate-400 font-normal">|</span>
+                    <span className="text-[8.5pt] font-bold text-slate-800">
+                      State: {supplierState} (Code: {supplierStateCode})
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Right: Invisible balance spacer so center text is mathematically centered */}
@@ -212,6 +250,10 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
               <div className="flex">
                 <span className="w-28 text-slate-600 font-semibold">Invoice Date:</span>
                 <span className="font-medium text-slate-900">{formatDateIndian(invoice_date)}</span>
+              </div>
+              <div className="flex">
+                <span className="w-28 text-slate-600 font-semibold">Supplier GSTIN:</span>
+                <span className="font-mono font-bold text-slate-950">{supplierGstin}</span>
               </div>
               <div className="flex">
                 <span className="w-28 text-slate-600 font-semibold">Reverse Charge:</span>
@@ -446,11 +488,11 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
                 {hasBankDetails && (
                   <div className="pt-1.5 mt-1 border-t border-slate-200 text-slate-700">
                     <p className="font-semibold text-slate-800">
-                      Bank: <span className="font-bold text-slate-950">{business.bank_name}</span> &bull; A/C No: <span className="font-mono font-bold text-slate-950">{business.account_number}</span>
+                      Bank: <span className="font-bold text-slate-950">{supplierBankName}</span> &bull; A/C No: <span className="font-mono font-bold text-slate-950">{supplierAccountNo}</span>
                     </p>
                     <p className="text-[7.5pt]">
-                      IFSC: <span className="font-mono font-bold">{business.ifsc}</span>
-                      {business.upi_id && <> &bull; UPI: <span className="font-mono font-bold">{business.upi_id}</span></>}
+                      IFSC: <span className="font-mono font-bold">{supplierIfsc}</span>
+                      {supplierUpiId && <> &bull; UPI: <span className="font-mono font-bold">{supplierUpiId}</span></>}
                     </p>
                   </div>
                 )}
@@ -508,7 +550,7 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
               Terms & Conditions:
             </p>
             <div className="text-slate-600 whitespace-pre-line leading-tight text-[7pt]">
-              {business.terms_and_conditions}
+              {supplierTerms}
             </div>
             <p className="mt-0.5 text-[6.5pt] text-slate-500 italic">
               * This is a Computer Generated Tax Invoice.
@@ -521,7 +563,7 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
               {/* Right Side: Dealership Signatory */}
               <div className="w-52 text-right flex flex-col items-end">
                 <p className="text-[8pt] font-bold uppercase text-slate-950 mb-0.5 text-center w-48">
-                  FOR {business.business_name || 'SR AUTOMOBILES'}
+                  FOR {supplierBusinessName || 'SR AUTOMOBILES'}
                 </p>
                 {/* Blank space for signature / digital signature if uploaded */}
                 <div className="h-10 w-48 flex items-center justify-center">
@@ -540,7 +582,7 @@ export const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({
                   Authorized Signatory
                 </p>
                 <p className="text-[7pt] text-slate-700 font-semibold text-center w-48 mt-0.5">
-                  {business.authorized_signatory || 'Venkata Ramana Reddy Umma'}
+                  {supplierSignatory || 'Venkata Ramana Reddy Umma'}
                 </p>
               </div>
             </div>

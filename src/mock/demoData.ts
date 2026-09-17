@@ -4,7 +4,7 @@ export const INITIAL_BUSINESS_SETTINGS: BusinessSettings = {
   id: 'a0000000-0000-0000-0000-000000000001',
   business_name: 'SR AUTOMOBILES',
   legal_name: 'SR AUTOMOBILES',
-  gstin: '',
+  gstin: '37CGEPN8682D1Z1',
   address: 'Chandrababu Nagar Ring',
   city: 'Mylavaram',
   district: 'NTR',

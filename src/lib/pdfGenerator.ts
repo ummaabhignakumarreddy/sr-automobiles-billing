@@ -1,11 +1,15 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Invoice, InvoiceCopyType } from '../types/database.types';
+import { Invoice, InvoiceCopyType, BusinessSettings } from '../types/database.types';
 import { formatINR, formatDateIndian } from './formatters';
 import { numberToWordsIndian } from './currencyWords';
 import { LOGO_BASE64 } from '../assets/logoBase64';
 
-export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType = 'ORIGINAL FOR RECIPIENT'): void {
+export function generateInvoicePdf(
+  invoice: Invoice,
+  copyType: InvoiceCopyType = 'ORIGINAL FOR RECIPIENT',
+  settings?: BusinessSettings
+): void {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -41,19 +45,37 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
     payments = [],
   } = invoice;
 
-  const isIntraState = business.state_code === place_of_supply_state_code;
+  // Robust fallback resolution for dealership details ensuring statutory compliance
+  const supplierBusinessName = business?.business_name || settings?.business_name || 'SR AUTOMOBILES';
+  const supplierGstin = business?.gstin?.trim() || settings?.gstin?.trim() || '37CGEPN8682D1Z1';
+  const supplierAddress = business?.address || settings?.address || 'Chandrababu Nagar Ring';
+  const supplierCity = business?.city || settings?.city || 'Mylavaram';
+  const supplierDistrict = business?.district || settings?.district || 'NTR';
+  const supplierState = business?.state || settings?.state || 'Andhra Pradesh';
+  const supplierStateCode = business?.state_code || settings?.state_code || '37';
+  const supplierPincode = business?.pincode || settings?.pincode || '521230';
+  const supplierPhone = business?.phone || settings?.phone || '8367444144';
+  const supplierEmail = business?.email || settings?.email || '';
+  const supplierBankName = business?.bank_name || settings?.bank_name || '';
+  const supplierAccountNo = business?.account_number || settings?.account_number || '';
+  const supplierIfsc = business?.ifsc || settings?.ifsc || '';
+  const supplierUpiId = business?.upi_id || settings?.upi_id || '';
+  const supplierSignatory = business?.authorized_signatory || settings?.authorized_signatory || 'Venkata Ramana Reddy Umma';
+  const supplierTerms = business?.terms_and_conditions || settings?.terms_and_conditions || '';
+
+  const isIntraState = supplierStateCode === place_of_supply_state_code;
   const grandTotalWords = numberToWordsIndian(grand_total);
   const isElectric = vehicle.fuel_type === 'Electric';
   const hasCess = (cess_amount || 0) > 0;
 
-  const formattedPhone = business.phone
-    ? business.phone.startsWith('+91')
-      ? business.phone
-      : `+91 ${business.phone}`
+  const formattedPhone = supplierPhone
+    ? supplierPhone.startsWith('+91')
+      ? supplierPhone
+      : `+91 ${supplierPhone}`
     : '+91 8367444144';
 
   const hasBankDetails = Boolean(
-    business.bank_name?.trim() && business.account_number?.trim()
+    supplierBankName?.trim() && supplierAccountNo?.trim()
   );
 
   // Outer Document Border (sharp 1px dark border)
@@ -77,9 +99,11 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   const logoY = y - 5.5;
 
   try {
-    const logoData = business.logo_url && business.logo_url.startsWith('data:')
+    const logoData = (business?.logo_url && business.logo_url.startsWith('data:'))
       ? business.logo_url
-      : LOGO_BASE64;
+      : (settings?.logo_url && settings.logo_url.startsWith('data:'))
+        ? settings.logo_url
+        : LOGO_BASE64;
     // Draw crisp dealership logo at top-left
     doc.addImage(logoData, 'PNG', logoX, logoY, logoSize, logoSize);
     // Subtle crisp border around logo
@@ -91,48 +115,46 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   }
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(19);
+  doc.setFontSize(18);
   doc.setTextColor(15, 23, 42); // dark slate
-  doc.text(business.business_name || 'SR AUTOMOBILES', pageWidth / 2, y, { align: 'center' });
-  y += 5;
+  doc.text(supplierBusinessName, pageWidth / 2, y, { align: 'center' });
+  y += 4.5;
 
   // Address line
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
-  const addressLine = `${business.address}, ${business.city}, ${business.state} - ${business.pincode}`;
+  const addressLine = `${supplierAddress}, ${supplierCity}, ${supplierDistrict ? `${supplierDistrict}, ` : ''}${supplierState} - ${supplierPincode}`;
   doc.text(addressLine, pageWidth / 2, y, { align: 'center' });
-  y += 4;
+  y += 3.8;
 
   // Phone & Email (if present)
   let contactLine = `Phone: ${formattedPhone}`;
-  if (business.email && business.email.trim()) {
-    contactLine += `  |  Email: ${business.email.trim()}`;
+  if (supplierEmail && supplierEmail.trim()) {
+    contactLine += `   |   Email: ${supplierEmail.trim()}`;
   }
   doc.text(contactLine, pageWidth / 2, y, { align: 'center' });
   y += 4;
 
-  // GSTIN row: ONLY if configured
-  if (business.gstin && business.gstin.trim()) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(15, 23, 42);
-    doc.text(`GSTIN: ${business.gstin.trim()}`, pageWidth / 2, y, { align: 'center' });
-    y += 4.5;
-  }
+  // STATUTORY DEALERSHIP GSTIN & STATE CODE (RULE 46)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`GSTIN: ${supplierGstin}   |   State: ${supplierState} (State Code: ${supplierStateCode})`, pageWidth / 2, y, { align: 'center' });
+  y += 4;
 
   // Divider Line
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.25);
   doc.line(margin + 2, y, margin + contentWidth - 2, y);
-  y += 4;
+  y += 3.5;
 
   // TAX INVOICE Title
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(15, 23, 42);
   doc.text('TAX INVOICE', pageWidth / 2, y, { align: 'center' });
-  y += 3.5;
+  y += 3.2;
 
   doc.setDrawColor(34, 34, 34);
   doc.setLineWidth(0.3);
@@ -144,7 +166,7 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   const leftColX = margin + 3;
   const rightColX = margin + contentWidth / 2 + 3;
 
-  // Left col: Invoice details
+  // Row 1: Invoice Number & Place of Supply
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(71, 85, 105);
   doc.text('Invoice Number:', leftColX, y);
@@ -152,15 +174,15 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   doc.setTextColor(15, 23, 42);
   doc.text(invoice_number, leftColX + 25, y);
 
-  // Right col: Place of Supply
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(71, 85, 105);
   doc.text('Place of Supply:', rightColX, y);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
   doc.text(`${place_of_supply} (State Code: ${place_of_supply_state_code})`, rightColX + 28, y);
-  y += 4;
+  y += 3.8;
 
+  // Row 2: Invoice Date & Tax Applicability
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(71, 85, 105);
   doc.text('Invoice Date:', leftColX, y);
@@ -174,14 +196,15 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(15, 23, 42);
   doc.text(isIntraState ? 'Intra-State (CGST + SGST)' : 'Inter-State (IGST)', rightColX + 28, y);
-  y += 4;
+  y += 3.8;
 
+  // Row 3: Supplier GSTIN & Payment Status
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(71, 85, 105);
-  doc.text('Reverse Charge:', leftColX, y);
-  doc.setFont('helvetica', 'normal');
+  doc.text('Supplier GSTIN:', leftColX, y);
+  doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
-  doc.text(reverse_charge ? 'YES' : 'NO', leftColX + 25, y);
+  doc.text(supplierGstin, leftColX + 25, y);
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(71, 85, 105);
@@ -189,7 +212,16 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(payment_status === 'PAID' ? 16 : 185, payment_status === 'PAID' ? 130 : 28, payment_status === 'PAID' ? 54 : 28);
   doc.text(payment_status, rightColX + 28, y);
-  y += 4;
+  y += 3.8;
+
+  // Row 4: Reverse Charge
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(71, 85, 105);
+  doc.text('Reverse Charge:', leftColX, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(15, 23, 42);
+  doc.text(reverse_charge ? 'YES' : 'NO', leftColX + 25, y);
+  y += 3.8;
 
   doc.setDrawColor(34, 34, 34);
   doc.setLineWidth(0.3);
@@ -246,11 +278,11 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   }
   y += 4;
 
-  // 5. VEHICLE DETAILS SECTION
+  // 5. VEHICLE DETAILS SECTION (4 Columns matching Web View)
   doc.setDrawColor(34, 34, 34);
   doc.setLineWidth(0.35);
   doc.setFillColor(248, 250, 252);
-  doc.rect(margin + 0.5, y, contentWidth - 1, 18, 'FD');
+  doc.rect(margin + 0.5, y, contentWidth - 1, 18.5, 'FD');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
@@ -262,61 +294,81 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
 
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.2);
-  doc.line(margin + 2, y + 6, margin + contentWidth - 2, y + 6);
+  doc.line(margin + 2, y + 5.8, margin + contentWidth - 2, y + 5.8);
 
-  // Vehicle Info Grid
+  // 4 Columns layout matching web exactly
   const vCol1 = margin + 3;
-  const vCol2 = margin + 52;
-  const vCol3 = margin + 105;
-  const vCol4 = margin + 152;
+  const vCol2 = margin + 48;
+  const vCol3 = margin + 96;
+  const vCol4 = margin + 144;
 
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 116, 139);
-  doc.text('Make & Model:', vCol1, y + 9.5);
+  // Col 1: Make & Model + Variant
+  doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text(`${vehicle.brand} ${vehicle.model}`, vCol1 + 20, y + 9.5);
-
-  doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 116, 139);
-  doc.text('Colour & Fuel:', vCol3, y + 9.5);
+  doc.text('MAKE & MODEL', vCol1, y + 9);
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`${vehicle.colour} (${vehicle.fuel_type})`, vCol3 + 18, y + 9.5);
+  doc.text(`${vehicle.brand} ${vehicle.model}`, vCol1, y + 12.5);
+  if (vehicle.variant) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(vehicle.variant, vCol1, y + 15.8);
+  }
 
-  // Row 2: Chassis & Engine/Motor
+  // Col 2: Colour & Fuel
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(100, 116, 139);
+  doc.text('COLOUR & FUEL', vCol2, y + 9);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(vehicle.colour, vCol2, y + 12.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Fuel: ${vehicle.fuel_type}`, vCol2, y + 15.8);
+
+  // Col 3: Chassis & Mfg Year
+  doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(71, 85, 105);
-  doc.text('CHASSIS / VIN:', vCol1, y + 14.5);
+  doc.text('CHASSIS / VIN NUMBER', vCol3, y + 9);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
   doc.setFontSize(7.5);
-  doc.text(vehicle.vin_chassis, vCol1 + 22, y + 14.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(vehicle.vin_chassis, vCol3, y + 12.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Mfg Year: ${vehicle.mfg_year}`, vCol3, y + 15.8);
 
-  doc.setFontSize(7);
+  // Col 4: Engine or Motor & Battery
   if (isElectric) {
+    doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(71, 85, 105);
-    doc.text('Motor No:', vCol3, y + 14.5);
+    doc.text('MOTOR & BATTERY NO', vCol4, y + 9);
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
     doc.setTextColor(15, 23, 42);
-    doc.text(vehicle.motor_number || '-', vCol3 + 15, y + 14.5);
-
+    doc.text(`M: ${vehicle.motor_number || '-'}`, vCol4, y + 12.5);
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
     doc.setTextColor(71, 85, 105);
-    doc.text(`Battery: ${vehicle.battery_number || '-'}`, vCol4, y + 14.5);
+    doc.text(`B: ${vehicle.battery_number || '-'}`, vCol4, y + 15.8);
   } else {
+    doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(71, 85, 105);
-    doc.text('Engine No:', vCol3, y + 14.5);
+    doc.text('ENGINE NUMBER', vCol4, y + 9);
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(vehicle.engine_number || '-', vCol3 + 16, y + 14.5);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Mfg Year: ${vehicle.mfg_year}`, vCol4, y + 14.5);
+    doc.text(vehicle.engine_number || '-', vCol4, y + 12.5);
   }
 
   y += 21;
@@ -477,7 +529,11 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
 
   // Bank details ONLY if configured
   if (hasBankDetails) {
-    doc.text(`Bank: ${business.bank_name}  |  A/C: ${business.account_number}  |  IFSC: ${business.ifsc}`, summaryLeftX, y);
+    let bankLine = `Bank: ${supplierBankName}   |   A/C: ${supplierAccountNo}   |   IFSC: ${supplierIfsc}`;
+    if (supplierUpiId) {
+      bankLine += `   |   UPI: ${supplierUpiId}`;
+    }
+    doc.text(bankLine, summaryLeftX, y);
     y += 3.5;
   }
 
@@ -537,7 +593,7 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(5.8);
   doc.setTextColor(100, 116, 139);
-  const termsArr = (business.terms_and_conditions || '').split('\n').slice(0, 3);
+  const termsArr = (supplierTerms || '').split('\n').slice(0, 3);
   termsArr.forEach(t => {
     doc.text(t, margin + 2, y);
     y += 2.5;
@@ -558,7 +614,7 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`FOR ${business.business_name || 'SR AUTOMOBILES'}`, rightX, y, { align: 'right' });
+  doc.text(`FOR ${supplierBusinessName || 'SR AUTOMOBILES'}`, rightX, y, { align: 'right' });
 
   // Signature line level (giving space above for signatures)
   const sigLineY = y + 10;
@@ -586,7 +642,7 @@ export function generateInvoicePdf(invoice: Invoice, copyType: InvoiceCopyType =
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(51, 65, 85);
-  doc.text(business.authorized_signatory || 'Venkata Ramana Reddy Umma', rightX - (sigLineWidth / 2), sigLineY + 6.2, { align: 'center' });
+  doc.text(supplierSignatory || 'Venkata Ramana Reddy Umma', rightX - (sigLineWidth / 2), sigLineY + 6.2, { align: 'center' });
 
   // Save PDF directly to user download folder
   const safeFilename = `Tax_Invoice_${invoice_number.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;

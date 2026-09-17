@@ -365,7 +365,11 @@ export const NewInvoicePage: React.FC<NewInvoicePageProps> = ({ onInvoiceFinaliz
         vehicle_id: selectedVehicle.id,
         customer_snapshot: selectedCustomer,
         vehicle_snapshot: selectedVehicle,
-        business_snapshot: settings,
+        business_snapshot: {
+          ...settings,
+          gstin: settings.gstin?.trim() || '37CGEPN8682D1Z1',
+          district: settings.district || 'NTR',
+        },
         items: itemsList,
         payments: payments.map(p => ({ ...p, invoice_id: '' })),
         gross_amount: invoiceTotals.grossAmount,

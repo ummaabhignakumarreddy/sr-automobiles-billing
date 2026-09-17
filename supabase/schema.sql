@@ -490,7 +490,7 @@ INSERT INTO business_settings (
     'a0000000-0000-0000-0000-000000000001',
     'SR AUTOMOBILES',
     'SR AUTOMOBILES',
-    '',
+    '37CGEPN8682D1Z1',
     'Chandrababu Nagar Ring',
     'Mylavaram',
     'NTR',
